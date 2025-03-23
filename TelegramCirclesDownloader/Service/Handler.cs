@@ -62,7 +62,10 @@ public class Handler(Client client, IOptions<AppSettings> settings) : IHandler
                     try
                     {
                         if (baseMessage is not Message { media: MessageMediaDocument { document: Document document } }) continue;
-                        if (document.mime_type != "video/mp4") continue;
+                        if (!document.attributes.Any(a => a is DocumentAttributeVideo attributeVideo && (attributeVideo.flags & DocumentAttributeVideo.Flags.round_message) != 0))
+                        {
+                            continue;
+                        }
                         var filename = $"{document.id}.{document.mime_type[(document.mime_type.IndexOf('/') + 1)..]}";
                         var filePath = Path.Combine(chatPath, filename);
                         await using var fileStream = File.Create(filePath);
