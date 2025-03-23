@@ -170,6 +170,7 @@ public class MenuHandler(Client client, IOptions<AppSettings> settings, IHostApp
         var rootDir = Path.Combine(VideoDirectory, chatId.ToString());
         var sourceDir = Path.Combine(rootDir, "source");
         var convertedDir = Path.Combine(rootDir, "converted");
+        var combinedDir = Path.Combine(rootDir, "combined");
 
         if (!Directory.Exists(convertedDir))
         {
@@ -184,11 +185,13 @@ public class MenuHandler(Client client, IOptions<AppSettings> settings, IHostApp
         {
             try
             {
-                await fileInfo.FullName.ConvertTo916($"{convertedDir}\\{fileInfo.Name}");
+                var converted = $"{convertedDir}\\{fileInfo.Name}";
+                await fileInfo.FullName.ConvertTo916(converted);
+                await Path.GetFullPath(converted).CombineVideosWithChromaKey(@"F:\dev\kwork\TelegramCirclesDownloader\TelegramCirclesDownloader\bin\Debug\net9.0\chroma_videos\foreground.mp4", $"{combinedDir}\\{fileInfo.Name}");
             }
             catch (Exception e)
             {
-                Log.ForContext<MenuHandler>().Error(e, "Ошибка обработки видео");
+                Log.ForContext<MenuHandler>().Error(e, "Ошибка обработки видео: {File}", fileInfo.FullName);
             }
         }
     }

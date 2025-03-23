@@ -76,7 +76,45 @@ public static partial class Extensions
         await conversion.Start();
         AnsiConsole.MarkupLine($"[{fileName}] успешно обработан".EscapeMarkup().MarkupMainColor());
     }
-    
+
+    public static async Task CombineVideosWithChromaKey(this string background, string foreground, string output)
+    {
+        var fileName = Path.GetFileName(background);
+        
+        var backgroundInfo = await FFmpeg.GetMediaInfo(background);
+        var greenScreenInfo = await FFmpeg.GetMediaInfo(foreground);
+        
+        var backgroundStream = backgroundInfo.VideoStreams.FirstOrDefault();
+        var greenScreenStream = greenScreenInfo.VideoStreams.FirstOrDefault();
+
+        if (backgroundStream == null || greenScreenStream == null)
+        {
+            throw new FileLoadException("Один из видеопотоков не найден!");
+        }
+        
+        const string filter = "[1:v]chromakey=0x00FF00:0.1:0.2[fg]; " +
+                              "[fg][0:v]scale2ref=w=oh*mdar:h=ih[fg_scaled][bg]; " +
+                              "[bg][fg_scaled]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[out]";
+        
+        
+        var conversion = FFmpeg.Conversions.New()
+            .AddParameter($"-i {background}")
+            .AddParameter($"-i {foreground}")
+            .AddParameter($"-filter_complex \"{filter}\"")
+            .AddParameter("-map \"[out]\" -map 1:a")
+            .AddParameter("-c:v libx264 -crf 30 -preset ultrafast")
+            .SetOutput(output)
+            .SetOverwriteOutput(true);
+
+        conversion.OnProgress += (_, args) =>
+        {
+            AnsiConsole.MarkupLine($"Обработка {fileName} [{args.Duration}/{args.TotalLength}][{args.Percent}%]".EscapeMarkup().MarkupMainColor());
+        };
+
+        await conversion.Start();
+        AnsiConsole.MarkupLine($"[{fileName}] успешно обработан".EscapeMarkup().MarkupMainColor());
+    }
+
     public static string GetSizeInMegabytes(this long bytes)
     {
         var sizeInMb = bytes / (1024.0 * 1024.0);
