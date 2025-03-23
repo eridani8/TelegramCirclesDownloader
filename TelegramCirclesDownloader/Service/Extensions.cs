@@ -1,10 +1,33 @@
 ﻿using System.Text.RegularExpressions;
+using CliWrap;
+using CliWrap.EventStream;
+using Serilog;
 using TL;
 
 namespace TelegramCirclesDownloader.Service;
 
 public static partial class Extensions
 {
+    public static async Task CallFfmpeg(this FileInfo fileInfo, string command, string outputPath)
+    {
+        var cmd = Cli.Wrap("ffmpeg")
+            .WithWorkingDirectory(AppDomain.CurrentDomain.BaseDirectory)
+            .WithArguments($"""-i "{fileInfo.FullName}" {command} "{outputPath}" """);
+
+        await foreach (var cmdEvent in cmd.ListenAsync())
+        {
+            switch (cmdEvent)
+            {
+                case StandardOutputCommandEvent stdOut:
+                    Log.ForContext<Handler>().Information(stdOut.Text);
+                    break;
+                case StandardErrorCommandEvent stdErr:
+                    Log.ForContext<Handler>().Information(stdErr.Text);
+                    break;
+            }
+        }
+    }
+    
     public static string GetSizeInMegabytes(this long bytes)
     {
         var sizeInMb = bytes / (1024.0 * 1024.0);

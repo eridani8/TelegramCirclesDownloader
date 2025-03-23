@@ -16,12 +16,14 @@ public interface IHandler
     Style Style { get; }
     Task DownloadCircles();
     Task Converter();
+    Task ConvertChromaVideos();
     Task ConvertCircles();
 }
 
 public class Handler(Client client, IOptions<AppSettings> settings, IHostApplicationLifetime lifetime) : IHandler
 {
     public string VideoDirectory => "videos";
+    private const string ChromaVideoDirectory = "chroma_videos";
     public Style Style { get; } = new(Color.MediumOrchid3);
     public string Tab => "       ";
 
@@ -113,7 +115,7 @@ public class Handler(Client client, IOptions<AppSettings> settings, IHostApplica
     public async Task Converter()
     {
         const string circleVideos = "Кружки";
-        const string chromaVideos = "Хроматические видео [[mov -> mp4]]";
+        const string chromaVideos = $"/{ChromaVideoDirectory}/ mov -> mp4";
         
         var choices = new SelectionPrompt<string>()
             .Title("Что будем конвертировать?")
@@ -134,29 +136,13 @@ public class Handler(Client client, IOptions<AppSettings> settings, IHostApplica
 
     public async Task ConvertChromaVideos()
     {
-        const string directory = "chroma_videos";
-        
-        var files = directory
+        var files = ChromaVideoDirectory
             .ToDirectoryInfo()
-            .EnumerateFiles();
+            .EnumerateFiles("*.mov");
 
         foreach (var fileInfo in files)
         {
-            var cmd = Cli.Wrap("ffmpeg")
-                .WithArguments($"""-i "{fileInfo.FullName}" -c:v libx264 -c:a aac "{directory}\{fileInfo.GetFileNameWithoutExtension()}.mp4" """);
-
-            await foreach (var cmdEvent in cmd.ListenAsync())
-            {
-                switch (cmdEvent)
-                {
-                    case StandardOutputCommandEvent stdOut:
-                        Log.ForContext<Handler>().Information(stdOut.Text);
-                        break;
-                    case StandardErrorCommandEvent stdErr:
-                        Log.ForContext<Handler>().Information(stdErr.Text);
-                        break;
-                }
-            }
+            await fileInfo.CallFfmpeg("-c:v libx264 -c:a aac", $"{ChromaVideoDirectory}\\{fileInfo.GetFileNameWithoutExtension()}.mp4");
         }
     }
     
@@ -185,8 +171,23 @@ public class Handler(Client client, IOptions<AppSettings> settings, IHostApplica
             Console.ReadKey();
             return;
         }
-        
-        AnsiConsole.MarkupLine(selectedChat.Title.EscapeMarkup().MarkupMainColor());
-        
+
+        var rootDir = Path.Combine(VideoDirectory, chatId.ToString());
+        var sourceDir = Path.Combine(rootDir, "source");
+        var convertedDir = Path.Combine(rootDir, "converted");
+
+        // if (!Directory.Exists(convertedDir))
+        // {
+        //     Directory.CreateDirectory(convertedDir);
+        // }
+        //
+        // var files = sourceDir
+        //     .ToDirectoryInfo()
+        //     .EnumerateFiles("*.mp4");
+        //
+        // foreach (var fileInfo in files)
+        // {
+        //     await fileInfo.CallFfmpeg("""-vf "crop=1080:1920" """, $"{convertedDir}\\{fileInfo.Name}");
+        // }
     }
 }
