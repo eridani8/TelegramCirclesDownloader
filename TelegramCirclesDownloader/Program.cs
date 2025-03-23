@@ -46,6 +46,8 @@ try
         await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official, Directory.GetCurrentDirectory());
         AnsiConsole.MarkupLine("Успех".EscapeMarkup().MarkupMainColor());
     }
+    
+    FFmpeg.SetExecutablesPath(Directory.GetCurrentDirectory());
 
     #region env
 

@@ -180,6 +180,16 @@ public class MenuHandler(Client client, IOptions<AppSettings> settings, IHostApp
         var files = sourceDir
             .ToDirectoryInfo()
             .EnumerateFiles("*.mp4");
+
+        var firstForeground = ChromaVideoDirectory
+            .ToDirectoryInfo()
+            .GetFiles("*.mp4")
+            .FirstOrDefault();
+
+        if (firstForeground == null)
+        {
+            throw new FileNotFoundException($"Нет ни одного фона в директории {ChromaVideoDirectory}");
+        }
         
         foreach (var fileInfo in files)
         {
@@ -187,7 +197,7 @@ public class MenuHandler(Client client, IOptions<AppSettings> settings, IHostApp
             {
                 var converted = $"{convertedDir}\\{fileInfo.Name}";
                 await fileInfo.FullName.ConvertTo916(converted);
-                await Path.GetFullPath(converted).CombineVideosWithChromaKey(@"F:\dev\kwork\TelegramCirclesDownloader\TelegramCirclesDownloader\bin\Debug\net9.0\chroma_videos\foreground.mp4", $"{combinedDir}\\{fileInfo.Name}");
+                await Path.GetFullPath(converted).CombineVideosWithChromaKey(firstForeground.FullName, $"{combinedDir}\\{fileInfo.Name}");
             }
             catch (Exception e)
             {
