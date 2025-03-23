@@ -83,6 +83,7 @@ try
 
     var builder = Host.CreateApplicationBuilder();
 
+    builder.Services.AddSingleton<Handler>();
     builder.Services.AddSingleton<User>(_ => myself);
     builder.Services.AddSingleton<Client>(_ => client);
     builder.Services.AddSerilog();

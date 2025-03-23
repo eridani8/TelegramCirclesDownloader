@@ -33,5 +33,5 @@ public static partial class Extensions
     }
     
     [GeneratedRegex(@"\[\[(\d+)\]\]$")]
-    public static partial Regex ChatRegex();
+    private static partial Regex ChatRegex();
 }
