@@ -18,7 +18,7 @@ public static partial class Extensions
             
                 var mediaInfo = await FFmpeg.GetMediaInfo(fileToConvert.FullName);
             
-                IStream? videoStream = mediaInfo.VideoStreams.FirstOrDefault()?.SetCodec(VideoCodec.h264);
+                IStream? videoStream = mediaInfo.VideoStreams.FirstOrDefault()?.SetCodec(VideoCodec.h264_nvenc);
                 IStream? audioStream = mediaInfo.AudioStreams.FirstOrDefault()?.SetCodec(AudioCodec.aac);
 
                 var conversion = FFmpeg.Conversions.New()
@@ -44,7 +44,7 @@ public static partial class Extensions
     public static async Task ConvertTo916(this string input, string output)
     {
         var mediaInfo = await FFmpeg.GetMediaInfo(input);
-        var videoStream = mediaInfo.VideoStreams.FirstOrDefault();
+        var videoStream = mediaInfo.VideoStreams.FirstOrDefault()?.SetCodec(VideoCodec.h264_nvenc);
         var fileName = Path.GetFileName(input);
 
         if (videoStream == null)
@@ -65,7 +65,6 @@ public static partial class Extensions
             .AddStream(videoStream)
             .SetOutput(output)
             .AddParameter($"-vf scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2")
-            .AddParameter("-c:v libx264")
             .SetOverwriteOutput(true);
         
         conversion.OnProgress += (_, args) =>
@@ -84,8 +83,8 @@ public static partial class Extensions
         var backgroundInfo = await FFmpeg.GetMediaInfo(background);
         var greenScreenInfo = await FFmpeg.GetMediaInfo(foreground);
         
-        var backgroundStream = backgroundInfo.VideoStreams.FirstOrDefault();
-        var greenScreenStream = greenScreenInfo.VideoStreams.FirstOrDefault();
+        var backgroundStream = backgroundInfo.VideoStreams.FirstOrDefault()?.SetCodec(VideoCodec.h264_nvenc);
+        var greenScreenStream = greenScreenInfo.VideoStreams.FirstOrDefault()?.SetCodec(VideoCodec.h264_nvenc);
 
         if (backgroundStream == null || greenScreenStream == null)
         {
@@ -102,7 +101,6 @@ public static partial class Extensions
             .AddParameter($"-i {foreground}")
             .AddParameter($"-filter_complex \"{filter}\"")
             .AddParameter("-map \"[out]\" -map 1:a")
-            .AddParameter("-c:v libx264 -crf 30 -preset ultrafast")
             .SetOutput(output)
             .SetOverwriteOutput(true);
 
