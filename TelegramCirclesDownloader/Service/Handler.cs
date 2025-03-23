@@ -1,4 +1,7 @@
-﻿using Microsoft.Extensions.Options;
+﻿using CliWrap;
+using CliWrap.EventStream;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Serilog;
 using Spectre.Console;
 using TL;
@@ -12,10 +15,11 @@ public interface IHandler
     string Tab { get; }
     Style Style { get; }
     Task DownloadCircles();
+    Task Converter();
     Task ConvertCircles();
 }
 
-public class Handler(Client client, IOptions<AppSettings> settings) : IHandler
+public class Handler(Client client, IOptions<AppSettings> settings, IHostApplicationLifetime lifetime) : IHandler
 {
     public string VideoDirectory => "videos";
     public Style Style { get; } = new(Color.MediumOrchid3);
@@ -27,31 +31,32 @@ public class Handler(Client client, IOptions<AppSettings> settings) : IHandler
         var chatDict = chats.chats
             .ToDictionary(p => p.Key, p => p.Value);
 
-        var selecting = new SelectionPrompt<string>()
+        var choices = new SelectionPrompt<string>()
             .Title("Выберите чат")
             .HighlightStyle(Style)
             .PageSize(20)
             .AddChoices(chatDict.Values.Select(chat => $"{chat.Title.EscapeMarkup()} [[{chat.ID}]]"));
 
-        var selectedEscaped = AnsiConsole.Prompt(selecting);
-        var selectedChat = chatDict.GetChat(selectedEscaped, out var chatId);
+        var prompt = AnsiConsole.Prompt(choices);
+        var selectedChat = chatDict.GetChat(prompt, out var chatId);
 
         if (selectedChat == null)
         {
-            AnsiConsole.MarkupLine($"Чат {selectedEscaped} не найден".MarkupMainColor());
+            AnsiConsole.MarkupLine($"Чат {prompt} не найден".MarkupMainColor());
             Console.ReadKey();
             return;
         }
 
-        var chatPath = Path.Combine(VideoDirectory, chatId.ToString(), "source");
-        if (!Directory.Exists(chatPath))
+        var path = Path.Combine(VideoDirectory, chatId.ToString(), "source");
+        if (!Directory.Exists(path))
         {
-            Directory.CreateDirectory(chatPath);
+            Directory.CreateDirectory(path);
         }
 
         InputPeer peer = chats.chats[chatId];
         for (var offsetId = 0;;)
         {
+            if (lifetime.ApplicationStopping.IsCancellationRequested) break;
             Messages_MessagesBase? messages = null;
             try
             {
@@ -61,13 +66,14 @@ public class Handler(Client client, IOptions<AppSettings> settings) : IHandler
                 {
                     try
                     {
+                        if (lifetime.ApplicationStopping.IsCancellationRequested) break;
                         if (baseMessage is not Message { media: MessageMediaDocument { document: Document document } }) continue;
                         if (!document.attributes.Any(a => a is DocumentAttributeVideo attributeVideo && (attributeVideo.flags & DocumentAttributeVideo.Flags.round_message) != 0))
                         {
                             continue;
                         }
                         var filename = $"{document.id}.{document.mime_type[(document.mime_type.IndexOf('/') + 1)..]}";
-                        var filePath = Path.Combine(chatPath, filename);
+                        var filePath = Path.Combine(path, filename);
                         await using var fileStream = File.Create(filePath);
                         await client.DownloadFileAsync(document, fileStream);
 
@@ -103,7 +109,57 @@ public class Handler(Client client, IOptions<AppSettings> settings) : IHandler
             }
         }
     }
+    
+    public async Task Converter()
+    {
+        const string circleVideos = "Кружки";
+        const string chromaVideos = "Хроматические видео [[mov -> mp4]]";
+        
+        var choices = new SelectionPrompt<string>()
+            .Title("Что будем конвертировать?")
+            .HighlightStyle(Style)
+            .AddChoices(circleVideos, chromaVideos);
+        var prompt = AnsiConsole.Prompt(choices);
 
+        switch (prompt)
+        {
+            case circleVideos:
+                await ConvertCircles();
+                break;
+            case chromaVideos:
+                await ConvertChromaVideos();
+                break;
+        }
+    }
+
+    public async Task ConvertChromaVideos()
+    {
+        const string directory = "chroma_videos";
+        
+        var files = directory
+            .ToDirectoryInfo()
+            .EnumerateFiles();
+
+        foreach (var fileInfo in files)
+        {
+            var cmd = Cli.Wrap("ffmpeg")
+                .WithArguments($"""-i "{fileInfo.FullName}" -c:v libx264 -c:a aac "{directory}\{fileInfo.GetFileNameWithoutExtension()}.mp4" """);
+
+            await foreach (var cmdEvent in cmd.ListenAsync())
+            {
+                switch (cmdEvent)
+                {
+                    case StandardOutputCommandEvent stdOut:
+                        Log.ForContext<Handler>().Information(stdOut.Text);
+                        break;
+                    case StandardErrorCommandEvent stdErr:
+                        Log.ForContext<Handler>().Information(stdErr.Text);
+                        break;
+                }
+            }
+        }
+    }
+    
     public async Task ConvertCircles()
     {
         var chats = await client.Messages_GetAllDialogs();

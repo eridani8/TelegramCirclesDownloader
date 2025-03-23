@@ -23,6 +23,11 @@ if (!Directory.Exists("videos"))
     Directory.CreateDirectory("videos");
 }
 
+if (!Directory.Exists("chroma_videos"))
+{
+    Directory.CreateDirectory("chroma_videos");
+}
+
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)

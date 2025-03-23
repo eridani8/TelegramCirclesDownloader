@@ -45,15 +45,15 @@ public class ConsoleMenu(IHostApplicationLifetime lifetime, IHandler handler, Us
 
         while (!lifetime.ApplicationStopping.IsCancellationRequested)
         {
-            var selectionPrompt = new SelectionPrompt<string>()
+            var choices = new SelectionPrompt<string>()
                 .Title($"Аккаунт: {username}")
                 .HighlightStyle(handler.Style)
                 .AddChoices(openFolder, download, convert, feedback, exit);
-            var menu = AnsiConsole.Prompt(selectionPrompt);
+            var prompt = AnsiConsole.Prompt(choices);
 
             try
             {
-                switch (menu)
+                switch (prompt)
                 {
                     case openFolder:
                         Process.Start(new ProcessStartInfo(handler.VideoDirectory) { UseShellExecute = true });
@@ -62,7 +62,7 @@ public class ConsoleMenu(IHostApplicationLifetime lifetime, IHandler handler, Us
                         await handler.DownloadCircles();
                         break;
                     case convert:
-                        await handler.ConvertCircles();
+                        await handler.Converter();
                         break;
                     case feedback:
                         Process.Start(new ProcessStartInfo("https://t.me/eridani_8") { UseShellExecute = true });
