@@ -140,10 +140,7 @@ public class Handler(Client client, IOptions<AppSettings> settings, IHostApplica
             .ToDirectoryInfo()
             .EnumerateFiles("*.mov");
 
-        foreach (var fileInfo in files)
-        {
-            await fileInfo.CallFfmpeg("-c:v libx264 -c:a aac", $"{ChromaVideoDirectory}\\{fileInfo.GetFileNameWithoutExtension()}.mp4");
-        }
+        await Extensions.ConvertToMp4(new Queue<FileInfo>(files));
     }
     
     public async Task ConvertCircles()

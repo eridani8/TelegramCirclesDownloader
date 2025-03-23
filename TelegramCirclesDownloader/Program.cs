@@ -9,6 +9,8 @@ using Spectre.Console;
 using TelegramCirclesDownloader.Service;
 using TL;
 using WTelegram;
+using Xabe.FFmpeg;
+using Xabe.FFmpeg.Downloader;
 
 const string outputTemplate = "[{Timestamp:yyyy-MM-dd HH:mm:ss}] [{Level:u3}] {Message:lj}{NewLine}{Exception}";
 var logsPath = Path.Combine("logs");
@@ -40,16 +42,18 @@ try
 {
     if (!File.Exists("ffmpeg.exe"))
     {
-        throw new FileNotFoundException("ffmpeg.exe не найден");
+        AnsiConsole.MarkupLine("Загружаю ffmpeg...".EscapeMarkup().MarkupMainColor());
+        await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official, Directory.GetCurrentDirectory());
+        AnsiConsole.MarkupLine("Успех".EscapeMarkup().MarkupMainColor());
     }
-    
+
     #region env
 
     if (!File.Exists(".env"))
     {
         throw new FileNotFoundException(".env не найден");
     }
-    
+
     Env.Load();
 
     var phoneNumber = Env.GetString("PHONE_NUMBER");

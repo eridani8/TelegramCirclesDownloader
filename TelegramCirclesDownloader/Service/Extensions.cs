@@ -1,13 +1,51 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Collections;
+using System.Text.RegularExpressions;
 using CliWrap;
 using CliWrap.EventStream;
 using Serilog;
+using Spectre.Console;
 using TL;
+using Xabe.FFmpeg;
 
 namespace TelegramCirclesDownloader.Service;
 
 public static partial class Extensions
 {
+    public static async Task ConvertToMp4(Queue<FileInfo> filesToConvert)
+    {
+        while(filesToConvert.TryDequeue(out var fileToConvert))
+        {
+            try
+            {
+                var outputPath = Path.ChangeExtension(fileToConvert.FullName, ".mp4");
+            
+                var mediaInfo = await FFmpeg.GetMediaInfo(fileToConvert.FullName);
+            
+                IStream? videoStream = mediaInfo.VideoStreams.FirstOrDefault()?.SetCodec(VideoCodec.h264);
+                IStream? audioStream = mediaInfo.AudioStreams.FirstOrDefault()?.SetCodec(AudioCodec.aac);
+
+                var conversion = FFmpeg.Conversions.New()
+                    .AddStream(audioStream, videoStream)
+                    .SetOutput(outputPath);
+            
+                //var conversion = await FFmpeg.Conversions.FromSnippet.Convert(fileToConvert.FullName, outputFileName);
+
+                var scope = fileToConvert;
+                conversion.OnProgress += (_, args) =>
+                {
+                    AnsiConsole.MarkupLine($"Обработка {scope.Name} [{args.Duration}/{args.TotalLength}][{args.Percent}%]".EscapeMarkup().MarkupMainColor());
+                };
+                
+                await conversion.Start();
+                AnsiConsole.MarkupLine($"[{fileToConvert.Name}] успешно обработан".EscapeMarkup().MarkupMainColor());
+            }
+            catch (Exception e)
+            {
+                Log.Error(e, "Failed to convert file to mp4");
+            }
+        }
+    }
+
     public static async Task CallFfmpeg(this FileInfo fileInfo, string command, string outputPath)
     {
         var cmd = Cli.Wrap("ffmpeg")
