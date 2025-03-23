@@ -28,16 +28,21 @@ Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .Enrich.FromLogContext()
     .WriteTo.Spectre(outputTemplate)
-    .WriteTo.File($"{logsPath}/errors-.log", rollingInterval: RollingInterval.Day, outputTemplate: outputTemplate, restrictedToMinimumLevel: LogEventLevel.Error)
+    .WriteTo.File($"{logsPath}/.log", rollingInterval: RollingInterval.Day, outputTemplate: outputTemplate, restrictedToMinimumLevel: LogEventLevel.Error)
     .CreateLogger();
 
 try
 {
+    if (!File.Exists("ffmpeg.exe"))
+    {
+        throw new FileNotFoundException("ffmpeg.exe не найден");
+    }
+    
     #region env
 
     if (!File.Exists(".env"))
     {
-        throw new ApplicationException(".env не найден");
+        throw new FileNotFoundException(".env не найден");
     }
     
     Env.Load();
@@ -84,7 +89,7 @@ try
     var builder = Host.CreateApplicationBuilder();
 
     builder.Services.Configure<AppSettings>(builder.Configuration.GetSection(nameof(AppSettings)));
-    builder.Services.AddSingleton<Handler>();
+    builder.Services.AddSingleton<IHandler, Handler>();
     builder.Services.AddSingleton<User>(_ => myself);
     builder.Services.AddSingleton<Client>(_ => client);
     builder.Services.AddSerilog();

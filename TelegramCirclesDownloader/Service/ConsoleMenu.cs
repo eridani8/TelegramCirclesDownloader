@@ -7,7 +7,7 @@ using WTelegram;
 
 namespace TelegramCirclesDownloader.Service;
 
-public class ConsoleMenu(IHostApplicationLifetime lifetime, Handler handler, User user, Client client) : IHostedService
+public class ConsoleMenu(IHostApplicationLifetime lifetime, IHandler handler, User user) : IHostedService
 {
     private Task? _task;
 
@@ -38,6 +38,7 @@ public class ConsoleMenu(IHostApplicationLifetime lifetime, Handler handler, Use
         const string openFolder = "Открыть папку загрузок";
         const string download = "Загрузка";
         const string convert = "Конвертер";
+        const string feedback = "Обратная связь";
         const string exit = "Выход";
 
         var username = $"{user.first_name} {user.last_name}";
@@ -47,7 +48,7 @@ public class ConsoleMenu(IHostApplicationLifetime lifetime, Handler handler, Use
             var selectionPrompt = new SelectionPrompt<string>()
                 .Title($"Аккаунт: {username}")
                 .HighlightStyle(handler.Style)
-                .AddChoices(openFolder, download, convert, exit);
+                .AddChoices(openFolder, download, convert, feedback, exit);
             var menu = AnsiConsole.Prompt(selectionPrompt);
 
             try
@@ -55,10 +56,16 @@ public class ConsoleMenu(IHostApplicationLifetime lifetime, Handler handler, Use
                 switch (menu)
                 {
                     case openFolder:
-                        Process.Start(new ProcessStartInfo(Handler.VideoDirectory) { UseShellExecute = true });
+                        Process.Start(new ProcessStartInfo(handler.VideoDirectory) { UseShellExecute = true });
                         break;
                     case download:
                         await handler.DownloadCircles();
+                        break;
+                    case convert:
+                        await handler.ConvertCircles();
+                        break;
+                    case feedback:
+                        Process.Start(new ProcessStartInfo("https://t.me/eridani_8") { UseShellExecute = true });
                         break;
                     case exit:
                         lifetime.StopApplication();

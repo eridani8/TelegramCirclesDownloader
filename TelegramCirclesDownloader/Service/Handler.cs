@@ -1,17 +1,25 @@
 ﻿using Microsoft.Extensions.Options;
 using Serilog;
 using Spectre.Console;
-using Sprache;
 using TL;
 using WTelegram;
 
 namespace TelegramCirclesDownloader.Service;
 
-public class Handler(Client client, IOptions<AppSettings> settings)
+public interface IHandler
 {
-    public const string VideoDirectory = "videos";
-    public readonly Style Style = new(Color.MediumOrchid3);
-    private const string Tab = "       ";
+    string VideoDirectory { get; }
+    string Tab { get; }
+    Style Style { get; }
+    Task DownloadCircles();
+    Task ConvertCircles();
+}
+
+public class Handler(Client client, IOptions<AppSettings> settings) : IHandler
+{
+    public string VideoDirectory => "videos";
+    public Style Style { get; } = new(Color.MediumOrchid3);
+    public string Tab => "       ";
 
     public async Task DownloadCircles()
     {
@@ -32,6 +40,7 @@ public class Handler(Client client, IOptions<AppSettings> settings)
         {
             AnsiConsole.MarkupLine($"Чат {selectedEscaped} не найден".MarkupMainColor());
             Console.ReadKey();
+            return;
         }
 
         var chatPath = Path.Combine(VideoDirectory, chatId.ToString(), "source");
@@ -90,5 +99,35 @@ public class Handler(Client client, IOptions<AppSettings> settings)
                 await Task.Delay(TimeSpan.FromSeconds(settings.Value.GetPagesDelay).Milliseconds);
             }
         }
+    }
+
+    public async Task ConvertCircles()
+    {
+        var chats = await client.Messages_GetAllDialogs();
+        var chatDict = chats.chats
+            .ToDictionary(p => p.Key, p => p.Value);
+        
+        var dirs = VideoDirectory
+            .ToDirectoryInfo()
+            .GetDirectories();
+
+        var selecting = new SelectionPrompt<string>()
+            .Title("Выберите чат")
+            .HighlightStyle(Style)
+            .PageSize(20)
+            .AddChoices(dirs.Select(dir => $"{chatDict.GetChat($"[[{dir.Name}]]", out var dirChatId)} [[{dirChatId}]]"));
+        
+        var selectedEscaped = AnsiConsole.Prompt(selecting);
+        var selectedChat = chatDict.GetChat(selectedEscaped, out var chatId);
+
+        if (selectedChat == null)
+        {
+            AnsiConsole.MarkupLine($"Чат {selectedEscaped} не найден".MarkupMainColor());
+            Console.ReadKey();
+            return;
+        }
+        
+        AnsiConsole.MarkupLine(selectedChat.Title.EscapeMarkup().MarkupMainColor());
+        
     }
 }
