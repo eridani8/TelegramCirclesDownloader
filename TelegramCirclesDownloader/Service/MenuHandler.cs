@@ -1,6 +1,4 @@
-﻿using CliWrap;
-using CliWrap.EventStream;
-using Microsoft.Extensions.Hosting;
+﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Serilog;
 using Spectre.Console;
@@ -9,7 +7,7 @@ using WTelegram;
 
 namespace TelegramCirclesDownloader.Service;
 
-public interface IHandler
+public interface IMenuHandler
 {
     string VideoDirectory { get; }
     string Tab { get; }
@@ -20,7 +18,7 @@ public interface IHandler
     Task ConvertCircles();
 }
 
-public class Handler(Client client, IOptions<AppSettings> settings, IHostApplicationLifetime lifetime) : IHandler
+public class MenuHandler(Client client, IOptions<AppSettings> settings, IHostApplicationLifetime lifetime) : IMenuHandler
 {
     public string VideoDirectory => "videos";
     private const string ChromaVideoDirectory = "chroma_videos";
@@ -173,18 +171,25 @@ public class Handler(Client client, IOptions<AppSettings> settings, IHostApplica
         var sourceDir = Path.Combine(rootDir, "source");
         var convertedDir = Path.Combine(rootDir, "converted");
 
-        // if (!Directory.Exists(convertedDir))
-        // {
-        //     Directory.CreateDirectory(convertedDir);
-        // }
-        //
-        // var files = sourceDir
-        //     .ToDirectoryInfo()
-        //     .EnumerateFiles("*.mp4");
-        //
-        // foreach (var fileInfo in files)
-        // {
-        //     await fileInfo.CallFfmpeg("""-vf "crop=1080:1920" """, $"{convertedDir}\\{fileInfo.Name}");
-        // }
+        if (!Directory.Exists(convertedDir))
+        {
+            Directory.CreateDirectory(convertedDir);
+        }
+        
+        var files = sourceDir
+            .ToDirectoryInfo()
+            .EnumerateFiles("*.mp4");
+        
+        foreach (var fileInfo in files)
+        {
+            try
+            {
+                await fileInfo.FullName.ConvertTo916($"{convertedDir}\\{fileInfo.Name}");
+            }
+            catch (Exception e)
+            {
+                Log.ForContext<MenuHandler>().Error(e, "Ошибка обработки видео");
+            }
+        }
     }
 }

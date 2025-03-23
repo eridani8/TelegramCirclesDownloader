@@ -1,7 +1,4 @@
-﻿using System.Collections;
-using System.Text.RegularExpressions;
-using CliWrap;
-using CliWrap.EventStream;
+﻿using System.Text.RegularExpressions;
 using Serilog;
 using Spectre.Console;
 using TL;
@@ -28,8 +25,6 @@ public static partial class Extensions
                     .AddStream(audioStream, videoStream)
                     .SetOutput(outputPath);
             
-                //var conversion = await FFmpeg.Conversions.FromSnippet.Convert(fileToConvert.FullName, outputFileName);
-
                 var scope = fileToConvert;
                 conversion.OnProgress += (_, args) =>
                 {
@@ -45,25 +40,41 @@ public static partial class Extensions
             }
         }
     }
-
-    public static async Task CallFfmpeg(this FileInfo fileInfo, string command, string outputPath)
+    
+    public static async Task ConvertTo916(this string input, string output)
     {
-        var cmd = Cli.Wrap("ffmpeg")
-            .WithWorkingDirectory(AppDomain.CurrentDomain.BaseDirectory)
-            .WithArguments($"""-i "{fileInfo.FullName}" {command} "{outputPath}" """);
+        var mediaInfo = await FFmpeg.GetMediaInfo(input);
+        var videoStream = mediaInfo.VideoStreams.FirstOrDefault();
+        var fileName = Path.GetFileName(input);
 
-        await foreach (var cmdEvent in cmd.ListenAsync())
+        if (videoStream == null)
         {
-            switch (cmdEvent)
-            {
-                case StandardOutputCommandEvent stdOut:
-                    Log.ForContext<Handler>().Information(stdOut.Text);
-                    break;
-                case StandardErrorCommandEvent stdErr:
-                    Log.ForContext<Handler>().Information(stdErr.Text);
-                    break;
-            }
+            throw new FileLoadException("Видео поток не найден!");
         }
+        
+        var width = videoStream.Width;
+        var height = (int)(width * 16.0 / 9.0);
+        
+        if (height < videoStream.Height)
+        {
+            height = videoStream.Height;
+            width = (int)(height * 9.0 / 16.0);
+        }
+        
+        var conversion = FFmpeg.Conversions.New()
+            .AddStream(videoStream)
+            .SetOutput(output)
+            .AddParameter($"-vf scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2")
+            .AddParameter("-c:v libx264")
+            .SetOverwriteOutput(true);
+        
+        conversion.OnProgress += (_, args) =>
+        {
+            AnsiConsole.MarkupLine($"Обработка {fileName} [{args.Duration}/{args.TotalLength}][{args.Percent}%]".EscapeMarkup().MarkupMainColor());
+        };
+
+        await conversion.Start();
+        AnsiConsole.MarkupLine($"[{fileName}] успешно обработан".EscapeMarkup().MarkupMainColor());
     }
     
     public static string GetSizeInMegabytes(this long bytes)

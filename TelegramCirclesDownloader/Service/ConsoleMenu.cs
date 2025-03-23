@@ -7,7 +7,7 @@ using WTelegram;
 
 namespace TelegramCirclesDownloader.Service;
 
-public class ConsoleMenu(IHostApplicationLifetime lifetime, IHandler handler, User user) : IHostedService
+public class ConsoleMenu(IHostApplicationLifetime lifetime, IMenuHandler menuHandler, User user) : IHostedService
 {
     private Task? _task;
 
@@ -47,7 +47,7 @@ public class ConsoleMenu(IHostApplicationLifetime lifetime, IHandler handler, Us
         {
             var choices = new SelectionPrompt<string>()
                 .Title($"Аккаунт: {username}")
-                .HighlightStyle(handler.Style)
+                .HighlightStyle(menuHandler.Style)
                 .AddChoices(openFolder, download, convert, feedback, exit);
             var prompt = AnsiConsole.Prompt(choices);
 
@@ -56,13 +56,13 @@ public class ConsoleMenu(IHostApplicationLifetime lifetime, IHandler handler, Us
                 switch (prompt)
                 {
                     case openFolder:
-                        Process.Start(new ProcessStartInfo(handler.VideoDirectory) { UseShellExecute = true });
+                        Process.Start(new ProcessStartInfo(menuHandler.VideoDirectory) { UseShellExecute = true });
                         break;
                     case download:
-                        await handler.DownloadCircles();
+                        await menuHandler.DownloadCircles();
                         break;
                     case convert:
-                        await handler.Converter();
+                        await menuHandler.Converter();
                         break;
                     case feedback:
                         Process.Start(new ProcessStartInfo("https://t.me/eridani_8") { UseShellExecute = true });
