@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿using System.Diagnostics;
+using Microsoft.Extensions.Hosting;
 using Serilog;
 using Spectre.Console;
 using TL;
@@ -34,24 +35,29 @@ public class ConsoleMenu(IHostApplicationLifetime lifetime, User user, Client cl
 
     private async Task Worker()
     {
+        const string openFolder = "Открыть папку загрузок";
         const string download = "Загрузка";
         const string convert = "Конвертер";
         const string exit = "Выход";
 
         var username = string.IsNullOrEmpty(user.MainUsername) ? user.ID.ToString() : user.MainUsername;
+        var videoDirectory = Path.Combine(Directory.GetCurrentDirectory(), "videos");
 
         while (!lifetime.ApplicationStopping.IsCancellationRequested)
         {
             var selectionPrompt = new SelectionPrompt<string>()
                 .Title($"Аккаунт: {username}")
                 .HighlightStyle(new Style(Color.MediumOrchid3))
-                .AddChoices(download, convert, exit);
+                .AddChoices(openFolder, download, convert, exit);
             var menu = AnsiConsole.Prompt(selectionPrompt);
 
             try
             {
                 switch (menu)
                 {
+                    case openFolder:
+                        Process.Start(new ProcessStartInfo(videoDirectory) { UseShellExecute = true });
+                        break;
                     case download:
                         var chats = await client.Messages_GetAllDialogs();
                         var chatDict = chats.chats.ToDictionary(p => p.Key, p => p.Value);
@@ -71,34 +77,59 @@ public class ConsoleMenu(IHostApplicationLifetime lifetime, User user, Client cl
                             Console.ReadKey();
                         }
 
+                        var chatPath = Path.Combine(videoDirectory, chatId.ToString(), "source");
+                        if (!Directory.Exists(chatPath))
+                        {
+                            Directory.CreateDirectory(chatPath);
+                        }
+                        
                         InputPeer peer = chats.chats[chatId];
                         for (var offsetId = 0;;)
                         {
-                            var messages = await client.Messages_GetHistory(peer, offsetId);
-                            if (messages.Messages.Length == 0) break;
-                            foreach (var baseMessage in messages.Messages)
+                            Messages_MessagesBase? messages = null;
+                            try
                             {
-                                if (baseMessage is not Message { media: MessageMediaDocument { document: Document document } }) continue;
-                                if (document.mime_type != "video/mp4") continue;
-                                var filename = $"{document.id}.{document.mime_type[(document.mime_type.IndexOf('/') + 1)..]}";
+                                messages = await client.Messages_GetHistory(peer, offsetId);
+                                if (messages.Messages.Length == 0) break;
+                                foreach (var baseMessage in messages.Messages)
+                                {
+                                    try
+                                    {
+                                        if (baseMessage is not Message { media: MessageMediaDocument { document: Document document } }) continue;
+                                        if (document.mime_type != "video/mp4") continue;
+                                        var filename = $"{document.id}.{document.mime_type[(document.mime_type.IndexOf('/') + 1)..]}";
+                                        var filePath = Path.Combine(chatPath, filename);
+                                        await using var fileStream = File.Create(filePath);
+                                        await client.DownloadFileAsync(document, fileStream);
+                                
+                                        AnsiConsole.Write(new TextPath(filePath)
+                                            .RootColor(Color.Yellow)
+                                            .SeparatorColor(Color.MediumOrchid3)
+                                            .StemColor(Color.Yellow)
+                                            .LeafColor(Color.Green));
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        Log.ForContext<ConsoleMenu>().Error(e, "При чтении сообщения или загрузке возникла ошибка");
+                                        AnsiConsole.WriteException(e);
+                                    }
+                                }
                             }
-                            offsetId = messages.Messages[^1].ID;
+                            catch (Exception e)
+                            {
+                                Log.ForContext<ConsoleMenu>().Error(e, "При чтении чата возникла ошибка");
+                                AnsiConsole.WriteException(e);
+                            }
+                            finally
+                            {
+                                if (messages != null)
+                                {
+                                    offsetId = messages.Messages[^1].ID;
+                                    AnsiConsole.Markup("Небольшая задержка для стабильной работы...".MarkupMainColor());
+                                    await Task.Delay(3000);
+                                }
+                            }
                         }
-
-                        // await AnsiConsole.Progress()
-                        //     .Columns([
-                        //         new ElapsedTimeColumn(),
-                        //         new TaskDescriptionColumn(),
-                        //         new ProgressBarColumn(),
-                        //         new RemainingTimeColumn(),
-                        //         new SpinnerColumn(),
-                        //     ])
-                        //     .StartAsync(async ctx =>
-                        //     {
-                        //         var task = ctx.AddTask("Поиск и загрузка кружков".MarkupMainColor());
-                        //         
-                        //         
-                        //     });
 
                         break;
                     case exit:
