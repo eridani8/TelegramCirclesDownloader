@@ -33,13 +33,13 @@ Log.Logger = new LoggerConfiguration()
 
 try
 {
+    #region env
+
     if (!File.Exists(".env"))
     {
         throw new ApplicationException(".env не найден");
     }
-
-    #region env
-
+    
     Env.Load();
 
     var phoneNumber = Env.GetString("PHONE_NUMBER");
@@ -83,6 +83,7 @@ try
 
     var builder = Host.CreateApplicationBuilder();
 
+    builder.Services.Configure<AppSettings>(builder.Configuration.GetSection(nameof(AppSettings)));
     builder.Services.AddSingleton<Handler>();
     builder.Services.AddSingleton<User>(_ => myself);
     builder.Services.AddSingleton<Client>(_ => client);

@@ -1,11 +1,13 @@
-﻿using Serilog;
+﻿using Microsoft.Extensions.Options;
+using Serilog;
 using Spectre.Console;
+using Sprache;
 using TL;
 using WTelegram;
 
 namespace TelegramCirclesDownloader.Service;
 
-public class Handler(Client client)
+public class Handler(Client client, IOptions<AppSettings> settings)
 {
     public const string VideoDirectory = "videos";
     public readonly Style Style = new(Color.MediumOrchid3);
@@ -85,7 +87,7 @@ public class Handler(Client client)
             {
                 offsetId = messages.Messages[^1].ID;
                 AnsiConsole.MarkupLine("Небольшая задержка для стабильной работы...".MarkupMainColor());
-                await Task.Delay(3000);
+                await Task.Delay(TimeSpan.FromSeconds(settings.Value.GetPagesDelay).Milliseconds);
             }
         }
     }
