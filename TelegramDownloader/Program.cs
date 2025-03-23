@@ -11,7 +11,7 @@ using TL;
 using WTelegram;
 
 const string outputTemplate = "[{Timestamp:yyyy-MM-dd HH:mm:ss}] [{Level:u3}] {Message:lj}{NewLine}{Exception}";
-var logsPath = Path.Combine(AppContext.BaseDirectory, "logs");
+var logsPath = Path.Combine("logs");
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -57,7 +57,12 @@ try
 
     #endregion
 
-    var wTelegramLogs = new StreamWriter("WTelegram.log", true, Encoding.UTF8) { AutoFlush = true };
+    if (!Directory.Exists(logsPath))
+    {
+        Directory.CreateDirectory(logsPath);
+    }
+
+    var wTelegramLogs = new StreamWriter(Path.Combine(logsPath, "WTelegram.log"), true, Encoding.UTF8) { AutoFlush = true };
     wTelegramLogs.AutoFlush = true;
     Helpers.Log = (lvl, str) => wTelegramLogs.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss} [{"TDIWE!"[lvl]}] {str}");
 
