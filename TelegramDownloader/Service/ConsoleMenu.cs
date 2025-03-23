@@ -40,14 +40,16 @@ public class ConsoleMenu(IHostApplicationLifetime lifetime, User user, Client cl
         const string convert = "Конвертер";
         const string exit = "Выход";
 
-        var username = string.IsNullOrEmpty(user.MainUsername) ? user.ID.ToString() : user.MainUsername;
-        var videoDirectory = Path.Combine(Directory.GetCurrentDirectory(), "videos");
+        var username = $"{user.first_name} {user.last_name}";
+        const string videoDirectory = "videos";
+
+        var style = new Style(Color.MediumOrchid3);
 
         while (!lifetime.ApplicationStopping.IsCancellationRequested)
         {
             var selectionPrompt = new SelectionPrompt<string>()
                 .Title($"Аккаунт: {username}")
-                .HighlightStyle(new Style(Color.MediumOrchid3))
+                .HighlightStyle(style)
                 .AddChoices(openFolder, download, convert, exit);
             var menu = AnsiConsole.Prompt(selectionPrompt);
 
@@ -64,7 +66,7 @@ public class ConsoleMenu(IHostApplicationLifetime lifetime, User user, Client cl
 
                         var selecting = new SelectionPrompt<string>()
                             .Title("Выберите чат")
-                            .HighlightStyle(new Style(Color.MediumOrchid3))
+                            .HighlightStyle(style)
                             .PageSize(20)
                             .AddChoices(chatDict.Values.Select(chat => $"{chat.Title.EscapeMarkup()} [[{chat.ID}]]"));
 
@@ -101,33 +103,36 @@ public class ConsoleMenu(IHostApplicationLifetime lifetime, User user, Client cl
                                         var filePath = Path.Combine(chatPath, filename);
                                         await using var fileStream = File.Create(filePath);
                                         await client.DownloadFileAsync(document, fileStream);
-                                
+                                        
                                         AnsiConsole.Write(new TextPath(filePath)
                                             .RootColor(Color.Yellow)
-                                            .SeparatorColor(Color.MediumOrchid3)
+                                            .SeparatorColor(Color.SeaGreen1)
                                             .StemColor(Color.Yellow)
                                             .LeafColor(Color.Green));
+                                        
+                                        AnsiConsole.Write("       ");
+                                        
+                                        var size = document.size.GetSizeInMegabytes();
+                                        AnsiConsole.Markup(size.MarkupAquaColor());
+                                        
+                                        
+                                        AnsiConsole.WriteLine();
                                     }
                                     catch (Exception e)
                                     {
                                         Log.ForContext<ConsoleMenu>().Error(e, "При чтении сообщения или загрузке возникла ошибка");
-                                        AnsiConsole.WriteException(e);
                                     }
                                 }
                             }
                             catch (Exception e)
                             {
                                 Log.ForContext<ConsoleMenu>().Error(e, "При чтении чата возникла ошибка");
-                                AnsiConsole.WriteException(e);
                             }
-                            finally
+                            if (messages != null)
                             {
-                                if (messages != null)
-                                {
-                                    offsetId = messages.Messages[^1].ID;
-                                    AnsiConsole.Markup("Небольшая задержка для стабильной работы...".MarkupMainColor());
-                                    await Task.Delay(3000);
-                                }
+                                offsetId = messages.Messages[^1].ID;
+                                AnsiConsole.MarkupLine("Небольшая задержка для стабильной работы...".MarkupMainColor());
+                                await Task.Delay(3000);
                             }
                         }
 
@@ -140,7 +145,6 @@ public class ConsoleMenu(IHostApplicationLifetime lifetime, User user, Client cl
             catch (Exception e)
             {
                 Log.ForContext<ConsoleMenu>().Error(e, "При выборе элемента меню возникла ошибка");
-                AnsiConsole.WriteException(e);
             }
         }
     }

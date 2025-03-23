@@ -1,4 +1,5 @@
-﻿using DotNetEnv;
+﻿using System.Text;
+using DotNetEnv;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
@@ -55,7 +56,11 @@ try
     }
 
     #endregion
-    
+
+    var wTelegramLogs = new StreamWriter("WTelegram.log", true, Encoding.UTF8) { AutoFlush = true };
+    wTelegramLogs.AutoFlush = true;
+    Helpers.Log = (lvl, str) => wTelegramLogs.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss} [{"TDIWE!"[lvl]}] {str}");
+
     var client = new Client(ConfigTelegram);
     var myself = await client.LoginUserIfNeeded();
     
@@ -73,7 +78,6 @@ try
 catch (Exception e)
 {
     Log.ForContext<Program>().Fatal(e, "Приложение не может загрузиться");
-    AnsiConsole.WriteException(e);
     Console.ReadKey();
 }
 finally
