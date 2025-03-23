@@ -6,6 +6,8 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <ApplicationIcon>icon.ico</ApplicationIcon>
+        <AssemblyName>TelegramCirclesDownloader</AssemblyName>
+        <RootNamespace>TelegramCirclesDownloader</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>

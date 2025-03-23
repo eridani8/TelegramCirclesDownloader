@@ -1,7 +1,7 @@
 ﻿using System.Text.RegularExpressions;
 using TL;
 
-namespace TelegramDownloader.Service;
+namespace TelegramCirclesDownloader.Service;
 
 public static partial class Extensions
 {

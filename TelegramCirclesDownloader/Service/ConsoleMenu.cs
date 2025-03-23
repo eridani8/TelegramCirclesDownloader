@@ -5,7 +5,7 @@ using Spectre.Console;
 using TL;
 using WTelegram;
 
-namespace TelegramDownloader.Service;
+namespace TelegramCirclesDownloader.Service;
 
 public class ConsoleMenu(IHostApplicationLifetime lifetime, User user, Client client) : IHostedService
 {

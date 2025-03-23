@@ -6,7 +6,7 @@ using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.Spectre;
 using Spectre.Console;
-using TelegramDownloader.Service;
+using TelegramCirclesDownloader.Service;
 using TL;
 using WTelegram;
 
@@ -31,23 +31,30 @@ try
     #region env
 
     Env.Load();
-    
-    var apiId = Env.GetString("API_ID");
-    var apiHash = Env.GetString("API_HASH");
+
     var phoneNumber = Env.GetString("PHONE_NUMBER");
     var password = Env.GetString("PASSWORD_2FA");
 
-    if (string.IsNullOrEmpty(apiId) || string.IsNullOrEmpty(apiHash) || string.IsNullOrEmpty(phoneNumber) || string.IsNullOrEmpty(password))
+    if (string.IsNullOrEmpty(phoneNumber))
     {
         throw new ApplicationException("Нужно заполнить .env файл");
     }
+
+    var api = Encoding.UTF8.GetString(new byte[] { 57, 53, 55, 55, 57, 53, 51 });
+    var hash = Encoding.UTF8.GetString(new byte[]
+    {
+        54, 102, 99, 97, 97, 52, 51, 55,
+        48, 53, 51, 102, 55, 51, 55, 51,
+        53, 101, 101, 99, 51, 56, 100, 99,
+        53, 50, 100, 56, 49, 53, 49, 50
+    });
 
     string? ConfigTelegram(string what)
     {
         return what switch
         {
-            "api_id" => apiId,
-            "api_hash" => apiHash,
+            "api_id" => api,
+            "api_hash" => hash,
             "phone_number" => phoneNumber,
             "verification_code" => AnsiConsole.Prompt(new TextPrompt<string?>("Введите код:".MarkupMainColor())),
             "password" => password,
@@ -68,14 +75,14 @@ try
 
     var client = new Client(ConfigTelegram);
     var myself = await client.LoginUserIfNeeded();
-    
+
     var builder = Host.CreateApplicationBuilder();
 
     builder.Services.AddSingleton<User>(_ => myself);
     builder.Services.AddSingleton<Client>(_ => client);
     builder.Services.AddSerilog();
     builder.Services.AddHostedService<ConsoleMenu>();
-    
+
     var app = builder.Build();
 
     await app.RunAsync();
