@@ -13,6 +13,16 @@ using WTelegram;
 const string outputTemplate = "[{Timestamp:yyyy-MM-dd HH:mm:ss}] [{Level:u3}] {Message:lj}{NewLine}{Exception}";
 var logsPath = Path.Combine("logs");
 
+if (!Directory.Exists(logsPath))
+{
+    Directory.CreateDirectory(logsPath);
+}
+
+if (!Directory.Exists("videos"))
+{
+    Directory.CreateDirectory("videos");
+}
+
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
@@ -63,11 +73,6 @@ try
     }
 
     #endregion
-
-    if (!Directory.Exists(logsPath))
-    {
-        Directory.CreateDirectory(logsPath);
-    }
 
     var wTelegramLogs = new StreamWriter(Path.Combine(logsPath, "WTelegram.log"), true, Encoding.UTF8) { AutoFlush = true };
     wTelegramLogs.AutoFlush = true;
