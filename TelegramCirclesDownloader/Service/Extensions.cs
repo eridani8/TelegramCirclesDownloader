@@ -8,7 +8,7 @@ namespace TelegramCirclesDownloader.Service;
 
 public static partial class Extensions
 {
-    public static async Task ConvertToMp4(Queue<FileInfo> filesToConvert)
+    public static async Task ConvertToMp4(Queue<FileInfo> filesToConvert, CancellationToken cancellationToken)
     {
         while(filesToConvert.TryDequeue(out var fileToConvert))
         {
@@ -16,13 +16,14 @@ public static partial class Extensions
             {
                 var outputPath = Path.ChangeExtension(fileToConvert.FullName, ".mp4");
             
-                var mediaInfo = await FFmpeg.GetMediaInfo(fileToConvert.FullName);
+                var mediaInfo = await FFmpeg.GetMediaInfo(fileToConvert.FullName, cancellationToken);
             
                 IStream? videoStream = mediaInfo.VideoStreams.FirstOrDefault()?.SetCodec(VideoCodec.h264_nvenc);
                 IStream? audioStream = mediaInfo.AudioStreams.FirstOrDefault()?.SetCodec(AudioCodec.aac);
 
                 var conversion = FFmpeg.Conversions.New()
                     .AddStream(audioStream, videoStream)
+                    .UseMultiThread(true)
                     .SetOutput(outputPath);
             
                 var scope = fileToConvert;
@@ -31,7 +32,7 @@ public static partial class Extensions
                     AnsiConsole.MarkupLine($"Обработка {scope.Name} [{args.Duration}/{args.TotalLength}][{args.Percent}%]".EscapeMarkup().MarkupMainColor());
                 };
                 
-                await conversion.Start();
+                await conversion.Start(cancellationToken);
                 AnsiConsole.MarkupLine($"[{fileToConvert.Name}] успешно обработан".EscapeMarkup().MarkupMainColor());
             }
             catch (Exception e)
@@ -41,10 +42,10 @@ public static partial class Extensions
         }
     }
     
-    public static async Task ConvertTo916(this string input, string output)
+    public static async Task ConvertTo916(this string input, string output, CancellationToken cancellationToken)
     {
-        var mediaInfo = await FFmpeg.GetMediaInfo(input);
-        var videoStream = mediaInfo.VideoStreams.FirstOrDefault()?.SetCodec(VideoCodec.h264_nvenc);
+        var mediaInfo = await FFmpeg.GetMediaInfo(input, cancellationToken);
+        var videoStream = mediaInfo.VideoStreams.FirstOrDefault();
         var fileName = Path.GetFileName(input);
 
         if (videoStream == null)
@@ -65,6 +66,8 @@ public static partial class Extensions
             .AddStream(videoStream)
             .SetOutput(output)
             .AddParameter($"-vf scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2")
+            .UseMultiThread(true)
+            .AddParameter("-c:v h264_nvenc")
             .SetOverwriteOutput(true);
         
         conversion.OnProgress += (_, args) =>
@@ -72,19 +75,19 @@ public static partial class Extensions
             AnsiConsole.MarkupLine($"Обработка {fileName} [{args.Duration}/{args.TotalLength}][{args.Percent}%]".EscapeMarkup().MarkupMainColor());
         };
 
-        await conversion.Start();
+        await conversion.Start(cancellationToken);
         AnsiConsole.MarkupLine($"[{fileName}] успешно обработан".EscapeMarkup().MarkupMainColor());
     }
 
-    public static async Task CombineVideosWithChromaKey(this string background, string foreground, string output)
+    public static async Task CombineVideosWithChromaKey(this string background, string foreground, string output, CancellationToken cancellationToken)
     {
         var fileName = Path.GetFileName(background);
         
-        var backgroundInfo = await FFmpeg.GetMediaInfo(background);
-        var greenScreenInfo = await FFmpeg.GetMediaInfo(foreground);
+        var backgroundInfo = await FFmpeg.GetMediaInfo(background, cancellationToken);
+        var greenScreenInfo = await FFmpeg.GetMediaInfo(foreground, cancellationToken);
         
-        var backgroundStream = backgroundInfo.VideoStreams.FirstOrDefault()?.SetCodec(VideoCodec.h264_nvenc);
-        var greenScreenStream = greenScreenInfo.VideoStreams.FirstOrDefault()?.SetCodec(VideoCodec.h264_nvenc);
+        var backgroundStream = backgroundInfo.VideoStreams.FirstOrDefault();
+        var greenScreenStream = greenScreenInfo.VideoStreams.FirstOrDefault();
 
         if (backgroundStream == null || greenScreenStream == null)
         {
@@ -101,6 +104,8 @@ public static partial class Extensions
             .AddParameter($"-i {foreground}")
             .AddParameter($"-filter_complex \"{filter}\"")
             .AddParameter("-map \"[out]\" -map 1:a")
+            .UseMultiThread(true)
+            .AddParameter("-c:v h264_nvenc")
             .SetOutput(output)
             .SetOverwriteOutput(true);
 
@@ -109,7 +114,7 @@ public static partial class Extensions
             AnsiConsole.MarkupLine($"Обработка {fileName} [{args.Duration}/{args.TotalLength}][{args.Percent}%]".EscapeMarkup().MarkupMainColor());
         };
 
-        await conversion.Start();
+        await conversion.Start(cancellationToken);
         AnsiConsole.MarkupLine($"[{fileName}] успешно обработан".EscapeMarkup().MarkupMainColor());
     }
 

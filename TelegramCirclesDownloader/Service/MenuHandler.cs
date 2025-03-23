@@ -137,8 +137,7 @@ public class MenuHandler(Client client, IOptions<AppSettings> settings, IHostApp
         var files = ChromaVideoDirectory
             .ToDirectoryInfo()
             .EnumerateFiles("*.mov");
-
-        await Extensions.ConvertToMp4(new Queue<FileInfo>(files));
+        await Extensions.ConvertToMp4(new Queue<FileInfo>(files), lifetime.ApplicationStopping);
     }
     
     public async Task ConvertCircles()
@@ -196,8 +195,8 @@ public class MenuHandler(Client client, IOptions<AppSettings> settings, IHostApp
             try
             {
                 var converted = $"{convertedDir}\\{fileInfo.Name}";
-                await fileInfo.FullName.ConvertTo916(converted);
-                await Path.GetFullPath(converted).CombineVideosWithChromaKey(firstForeground.FullName, $"{combinedDir}\\{fileInfo.Name}");
+                await fileInfo.FullName.ConvertTo916(converted, lifetime.ApplicationStopping);
+                await Path.GetFullPath(converted).CombineVideosWithChromaKey(firstForeground.FullName, $"{combinedDir}\\{fileInfo.Name}", lifetime.ApplicationStopping);
             }
             catch (Exception e)
             {
