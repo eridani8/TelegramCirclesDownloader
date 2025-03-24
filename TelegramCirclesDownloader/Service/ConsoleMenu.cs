@@ -7,7 +7,7 @@ using WTelegram;
 
 namespace TelegramCirclesDownloader.Service;
 
-public class ConsoleMenu(IHostApplicationLifetime lifetime, IMenuHandler menuHandler, User user) : IHostedService
+public class ConsoleMenu(IHostApplicationLifetime lifetime, IMenuHandler menuHandler, User user, Client client) : IHostedService
 {
     private Task? _task;
 
@@ -21,6 +21,7 @@ public class ConsoleMenu(IHostApplicationLifetime lifetime, IMenuHandler menuHan
     {
         try
         {
+            await client.DisposeAsync();
             lifetime.StopApplication();
             if (_task != null)
             {
