@@ -195,7 +195,7 @@ public class MenuHandler(Client client, IOptions<AppSettings> settings, IHostApp
             try
             {
                 var converted = $"{convertedDir}\\{fileInfo.Name}";
-                await fileInfo.FullName.ConvertTo916(converted, lifetime.ApplicationStopping);
+                await fileInfo.FullName.ConvertTo916(converted, firstForeground.FullName, lifetime.ApplicationStopping);
                 await Path.GetFullPath(converted).CombineVideosWithChromaKey(firstForeground.FullName, settings.Value.ChromakeyColor, $"{combinedDir}\\{fileInfo.Name}", lifetime.ApplicationStopping);
             }
             catch (Exception e)

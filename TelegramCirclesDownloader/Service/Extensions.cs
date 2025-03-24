@@ -3,6 +3,7 @@ using Serilog;
 using Spectre.Console;
 using TL;
 using Xabe.FFmpeg;
+using VideoSize = Xabe.FFmpeg.VideoSize;
 
 namespace TelegramCirclesDownloader.Service;
 
@@ -18,13 +19,14 @@ public static partial class Extensions
 
                 var mediaInfo = await FFmpeg.GetMediaInfo(fileToConvert.FullName, cancellationToken);
 
-                IStream? videoStream = mediaInfo.VideoStreams.FirstOrDefault()?.SetCodec(VideoCodec.h264_nvenc).SetSize(400, 710);;
+                IStream? videoStream = mediaInfo.VideoStreams.FirstOrDefault()?.SetCodec(VideoCodec.h264_nvenc);
                 IStream? audioStream = mediaInfo.AudioStreams.FirstOrDefault()?.SetCodec(AudioCodec.aac);
 
                 var conversion = FFmpeg.Conversions.New()
                     .AddStream(audioStream, videoStream)
                     .UseMultiThread(true)
-                    .SetOutput(outputPath);
+                    .SetOutput(outputPath)
+                    .SetOverwriteOutput(true);
 
                 var scope = fileToConvert;
                 conversion.OnProgress += (_, args) => { AnsiConsole.MarkupLine($"Обработка {scope.Name} [{args.Duration}/{args.TotalLength}][{args.Percent}%]".EscapeMarkup().MarkupMainColor()); };
@@ -39,10 +41,18 @@ public static partial class Extensions
         }
     }
 
-    public static async Task ConvertTo916(this string input, string output, CancellationToken cancellationToken)
+    public static async Task ConvertTo916(this string input, string output, string foreground, CancellationToken cancellationToken)
     {
         var mediaInfo = await FFmpeg.GetMediaInfo(input, cancellationToken);
-        var videoStream = mediaInfo.VideoStreams.FirstOrDefault();
+        var foregroundInfo = await FFmpeg.GetMediaInfo(foreground, cancellationToken);
+        var foregroundStream = foregroundInfo.VideoStreams.FirstOrDefault();
+
+        if (foregroundStream == null)
+        {
+            throw new FileLoadException("У фона не обнаружен видео-поток");
+        }
+        
+        var videoStream = mediaInfo.VideoStreams.FirstOrDefault()?.SetSize(foregroundStream.Width, foregroundStream.Height);
         var audioStream = mediaInfo.AudioStreams.FirstOrDefault();
         var fileName = Path.GetFileName(input);
 
@@ -102,8 +112,8 @@ public static partial class Extensions
             .AddParameter($"-i \"{background}\"")
             .AddParameter($"-i \"{foreground}\"")
             .AddParameter($"-filter_complex \"{filter}\"")
-            .AddParameter($"-map 0:a")
-            .AddParameter($"-map 0:v")
+            .AddParameter("-map 0:a")
+            .AddParameter("-map 0:v")
             .AddParameter($"-t {(int)backgroundInfo.Duration.TotalSeconds}")
             .AddParameter("-c:v h264_nvenc")
             .AddParameter("-c:a copy")
