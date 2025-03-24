@@ -109,12 +109,12 @@ public class MenuHandler(Client client, IOptions<AppSettings> settings, IHostApp
             }
         }
     }
-    
+
     public async Task Converter()
     {
         const string circleVideos = "Кружки";
         const string chromaVideos = $"/{ChromaVideoDirectory}/ mov -> mp4";
-        
+
         var choices = new SelectionPrompt<string>()
             .Title("Что будем конвертировать?")
             .HighlightStyle(Style)
@@ -139,13 +139,13 @@ public class MenuHandler(Client client, IOptions<AppSettings> settings, IHostApp
             .EnumerateFiles("*.mov");
         await Extensions.ConvertToMp4(new Queue<FileInfo>(files), lifetime.ApplicationStopping);
     }
-    
+
     public async Task ConvertCircles()
     {
         var chats = await client.Messages_GetAllDialogs();
         var chatDict = chats.chats
             .ToDictionary(p => p.Key, p => p.Value);
-        
+
         var dirs = VideoDirectory
             .ToDirectoryInfo()
             .GetDirectories();
@@ -155,7 +155,7 @@ public class MenuHandler(Client client, IOptions<AppSettings> settings, IHostApp
             .HighlightStyle(Style)
             .PageSize(20)
             .AddChoices(dirs.Select(dir => $"{chatDict.GetChat($"[[{dir.Name}]]", out var dirChatId)} [[{dirChatId}]]"));
-        
+
         var selectedEscaped = AnsiConsole.Prompt(selecting);
         var selectedChat = chatDict.GetChat(selectedEscaped, out var chatId);
 
@@ -175,7 +175,7 @@ public class MenuHandler(Client client, IOptions<AppSettings> settings, IHostApp
         {
             Directory.CreateDirectory(convertedDir);
         }
-        
+
         var files = sourceDir
             .ToDirectoryInfo()
             .EnumerateFiles("*.mp4");
@@ -189,14 +189,14 @@ public class MenuHandler(Client client, IOptions<AppSettings> settings, IHostApp
         {
             throw new FileNotFoundException($"Нет ни одного фона в директории {ChromaVideoDirectory}");
         }
-        
+
         foreach (var fileInfo in files)
         {
             try
             {
                 var converted = $"{convertedDir}\\{fileInfo.Name}";
                 await fileInfo.FullName.ConvertTo916(converted, lifetime.ApplicationStopping);
-                await Path.GetFullPath(converted).CombineVideosWithChromaKey(firstForeground.FullName, $"{combinedDir}\\{fileInfo.Name}", lifetime.ApplicationStopping);
+                await Path.GetFullPath(converted).CombineVideosWithChromaKey(firstForeground.FullName, settings.Value.ChromakeyColor, $"{combinedDir}\\{fileInfo.Name}", lifetime.ApplicationStopping);
             }
             catch (Exception e)
             {
