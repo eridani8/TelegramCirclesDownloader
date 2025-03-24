@@ -52,7 +52,7 @@ public static partial class Extensions
             throw new FileLoadException("У фона не обнаружен видео-поток");
         }
         
-        var videoStream = mediaInfo.VideoStreams.FirstOrDefault()?.SetSize(foregroundStream.Width, foregroundStream.Height);
+        var videoStream = mediaInfo.VideoStreams.FirstOrDefault();
         var audioStream = mediaInfo.AudioStreams.FirstOrDefault();
         var fileName = Path.GetFileName(input);
 
@@ -104,26 +104,24 @@ public static partial class Extensions
             throw new FileLoadException("Один из видеопотоков не найден!");
         }
 
-        var filter = $"[1:v]colorkey=0x{chromakeyColor}:0.3:0.1[a];" +
-                     $"[a]trim=duration={(int)backgroundInfo.Duration.TotalSeconds}[a_trim];" +
-                     $"[0:v][a_trim]overlay=W-w:0";
-
+        var filter = $"[1:v]chromakey=0x{chromakeyColor}:0.1:0.2[fg]; " +
+                     "[fg][0:v]scale2ref=w=oh*mdar:h=ih[fg_scaled][bg]; " +
+                     "[bg][fg_scaled]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[out]";
+        
+        
         var conversion = FFmpeg.Conversions.New()
-            .AddParameter($"-i \"{background}\"")
-            .AddParameter($"-i \"{foreground}\"")
+            .AddParameter($"-i {background}")
+            .AddParameter($"-i {foreground}")
             .AddParameter($"-filter_complex \"{filter}\"")
-            .AddParameter("-map 0:a")
-            .AddParameter("-map 0:v")
-            .AddParameter($"-t {(int)backgroundInfo.Duration.TotalSeconds}")
-            .AddParameter("-c:v h264_nvenc")
-            .AddParameter("-c:a copy")
+            .AddParameter("-map \"[out]\" -map 1:a")
             .UseMultiThread(true)
+            .AddParameter("-c:v h264_nvenc")
             .SetOutput(output)
             .SetOverwriteOutput(true);
 
         conversion.OnProgress += (_, args) =>
         {
-            AnsiConsole.MarkupLine($"Обработка {fileName} [{(int)args.Duration.TotalSeconds}/{(int)args.TotalLength.TotalDays}]".EscapeMarkup().MarkupMainColor());
+            AnsiConsole.MarkupLine($"Обработка {fileName} [{args.Duration}/{args.TotalLength}][{args.Percent}%]".EscapeMarkup().MarkupMainColor());
         };
 
         await conversion.Start(cancellationToken);
