@@ -18,7 +18,7 @@ public static partial class Extensions
 
                 var mediaInfo = await FFmpeg.GetMediaInfo(fileToConvert.FullName, cancellationToken);
 
-                IStream? videoStream = mediaInfo.VideoStreams.FirstOrDefault()?.SetCodec(VideoCodec.h264_nvenc);
+                IStream? videoStream = mediaInfo.VideoStreams.FirstOrDefault()?.SetCodec(VideoCodec.h264_nvenc).SetSize(400, 710);;
                 IStream? audioStream = mediaInfo.AudioStreams.FirstOrDefault()?.SetCodec(AudioCodec.aac);
 
                 var conversion = FFmpeg.Conversions.New()
@@ -43,6 +43,7 @@ public static partial class Extensions
     {
         var mediaInfo = await FFmpeg.GetMediaInfo(input, cancellationToken);
         var videoStream = mediaInfo.VideoStreams.FirstOrDefault();
+        var audioStream = mediaInfo.AudioStreams.FirstOrDefault();
         var fileName = Path.GetFileName(input);
 
         if (videoStream == null)
@@ -61,10 +62,12 @@ public static partial class Extensions
         
         var conversion = FFmpeg.Conversions.New()
             .AddStream(videoStream)
+            .AddStream(audioStream)
             .SetOutput(output)
             .AddParameter($"-vf scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2")
             .UseMultiThread(true)
             .AddParameter("-c:v h264_nvenc")
+            .AddParameter("-c:a aac")
             .SetOverwriteOutput(true);
         
         conversion.OnProgress += (_, args) =>
@@ -90,27 +93,27 @@ public static partial class Extensions
         {
             throw new FileLoadException("Один из видеопотоков не найден!");
         }
-        
-        var filter = $"[1:v]chromakey=0x{chromakeyColor}:0.1:0.2[fg]; " +
-                     "[fg][0:v]scale2ref=w=oh*mdar:h=ih[fg_scaled][bg]; " +
-                     "[bg][fg_scaled]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[out]";
-        
-        
+
+        var filter = $"[1:v]colorkey=0x{chromakeyColor}:0.3:0.1[a];" +
+                     $"[a]trim=duration={(int)backgroundInfo.Duration.TotalSeconds}[a_trim];" +
+                     $"[0:v][a_trim]overlay=W-w:0";
+
         var conversion = FFmpeg.Conversions.New()
-            .AddParameter($"-i {background}")
-            .AddParameter($"-i {foreground}")
+            .AddParameter($"-i \"{background}\"")
+            .AddParameter($"-i \"{foreground}\"")
             .AddParameter($"-filter_complex \"{filter}\"")
-            .AddParameter("-map \"[out]\" -map 1:a")
-            .UseMultiThread(true)
+            .AddParameter($"-map 0:a")
+            .AddParameter($"-map 0:v")
+            .AddParameter($"-t {(int)backgroundInfo.Duration.TotalSeconds}")
             .AddParameter("-c:v h264_nvenc")
+            .AddParameter("-c:a copy")
+            .UseMultiThread(true)
             .SetOutput(output)
             .SetOverwriteOutput(true);
 
-        var str = conversion.Build();
-
         conversion.OnProgress += (_, args) =>
         {
-            AnsiConsole.MarkupLine($"Обработка {fileName} [{args.Duration}/{args.TotalLength}][{args.Percent}%]".EscapeMarkup().MarkupMainColor());
+            AnsiConsole.MarkupLine($"Обработка {fileName} [{(int)args.Duration.TotalSeconds}/{(int)args.TotalLength.TotalDays}]".EscapeMarkup().MarkupMainColor());
         };
 
         await conversion.Start(cancellationToken);
