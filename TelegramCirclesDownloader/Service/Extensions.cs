@@ -49,35 +49,28 @@ public static partial class Extensions
         {
             throw new FileLoadException("Видео поток не найден!");
         }
-
-        const int targetWidth = 2560;
-        const int targetHeight = 1440;
-
-        var aspectRatio = (double)videoStream.Width / videoStream.Height;
-        const double targetAspect = 16.0 / 9.0;
-
-        int width, height;
-
-        if (aspectRatio > targetAspect)
+        
+        var width = videoStream.Width;
+        var height = (int)(width * 16.0 / 9.0);
+        
+        if (height < videoStream.Height)
         {
-            width = targetWidth;
-            height = (int)(targetWidth / aspectRatio);
+            height = videoStream.Height;
+            width = (int)(height * 9.0 / 16.0);
         }
-        else
-        {
-            height = targetHeight;
-            width = (int)(targetHeight * aspectRatio);
-        }
-
+        
         var conversion = FFmpeg.Conversions.New()
             .AddStream(videoStream)
             .SetOutput(output)
-            .AddParameter($"-vf scale={width}:{height}:force_original_aspect_ratio=decrease,pad={targetWidth}:{targetHeight}:(ow-iw)/2:(oh-ih)/2")
+            .AddParameter($"-vf scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2")
             .UseMultiThread(true)
             .AddParameter("-c:v h264_nvenc")
             .SetOverwriteOutput(true);
-
-        conversion.OnProgress += (_, args) => { AnsiConsole.MarkupLine($"Обработка {fileName} [{args.Duration}/{args.TotalLength}][{args.Percent}%]".EscapeMarkup().MarkupMainColor()); };
+        
+        conversion.OnProgress += (_, args) =>
+        {
+            AnsiConsole.MarkupLine($"Обработка {fileName} [{args.Duration}/{args.TotalLength}][{args.Percent}%]".EscapeMarkup().MarkupMainColor());
+        };
 
         await conversion.Start(cancellationToken);
         AnsiConsole.MarkupLine($"[{fileName}] успешно обработан".EscapeMarkup().MarkupMainColor());
@@ -86,10 +79,10 @@ public static partial class Extensions
     public static async Task CombineVideosWithChromaKey(this string background, string foreground, string chromakeyColor, string output, CancellationToken cancellationToken)
     {
         var fileName = Path.GetFileName(background);
-
+        
         var backgroundInfo = await FFmpeg.GetMediaInfo(background, cancellationToken);
         var greenScreenInfo = await FFmpeg.GetMediaInfo(foreground, cancellationToken);
-
+        
         var backgroundStream = backgroundInfo.VideoStreams.FirstOrDefault();
         var greenScreenStream = greenScreenInfo.VideoStreams.FirstOrDefault();
 
@@ -97,22 +90,28 @@ public static partial class Extensions
         {
             throw new FileLoadException("Один из видеопотоков не найден!");
         }
-
+        
         var filter = $"[1:v]chromakey=0x{chromakeyColor}:0.1:0.2[fg]; " +
-                     "[0:v][fg]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[out]";
-
+                     "[fg][0:v]scale2ref=w=oh*mdar:h=ih[fg_scaled][bg]; " +
+                     "[bg][fg_scaled]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[out]";
+        
+        
         var conversion = FFmpeg.Conversions.New()
             .AddParameter($"-i {background}")
             .AddParameter($"-i {foreground}")
             .AddParameter($"-filter_complex \"{filter}\"")
-            .AddParameter("-map \"[out]\"")
-            .AddParameter("-map 1:a?")
+            .AddParameter("-map \"[out]\" -map 1:a")
             .UseMultiThread(true)
             .AddParameter("-c:v h264_nvenc")
             .SetOutput(output)
             .SetOverwriteOutput(true);
 
-        conversion.OnProgress += (_, args) => { AnsiConsole.MarkupLine($"Обработка {fileName} [{args.Duration}/{args.TotalLength}][{args.Percent}%]".EscapeMarkup().MarkupMainColor()); };
+        var str = conversion.Build();
+
+        conversion.OnProgress += (_, args) =>
+        {
+            AnsiConsole.MarkupLine($"Обработка {fileName} [{args.Duration}/{args.TotalLength}][{args.Percent}%]".EscapeMarkup().MarkupMainColor());
+        };
 
         await conversion.Start(cancellationToken);
         AnsiConsole.MarkupLine($"[{fileName}] успешно обработан".EscapeMarkup().MarkupMainColor());
