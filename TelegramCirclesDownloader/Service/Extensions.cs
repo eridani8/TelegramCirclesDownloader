@@ -19,7 +19,7 @@ public static partial class Extensions
 
                 var mediaInfo = await FFmpeg.GetMediaInfo(fileToConvert.FullName, cancellationToken);
 
-                IStream? videoStream = mediaInfo.VideoStreams.FirstOrDefault()?.SetCodec(VideoCodec.h264_nvenc);
+                IStream? videoStream = mediaInfo.VideoStreams.FirstOrDefault()?.SetCodec(VideoCodec.h264);
                 IStream? audioStream = mediaInfo.AudioStreams.FirstOrDefault()?.SetCodec(AudioCodec.aac);
 
                 var conversion = FFmpeg.Conversions.New()
@@ -76,7 +76,7 @@ public static partial class Extensions
             .SetOutput(output)
             .AddParameter($"-vf scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2")
             .UseMultiThread(true)
-            .AddParameter("-c:v h264_nvenc")
+            .AddParameter("-c:v libx264")
             .AddParameter("-c:a aac")
             .SetOverwriteOutput(true);
         
@@ -115,7 +115,7 @@ public static partial class Extensions
             .AddParameter("-map 0:a")
             .AddParameter("-map 0:v")
             .AddParameter($"-t {(int)backgroundInfo.Duration.TotalSeconds}")
-            .AddParameter("-c:v h264_nvenc")
+            .AddParameter("-c:v libx264")
             .AddParameter("-c:a copy")
             .UseMultiThread(true)
             .SetOutput(output)
