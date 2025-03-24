@@ -114,6 +114,7 @@ public static partial class Extensions
             .AddParameter($"-i {foreground}")
             .AddParameter($"-filter_complex \"{filter}\"")
             .AddParameter("-map \"[out]\" -map 1:a")
+            .AddParameter($"-t {(int)backgroundStream.Duration.TotalSeconds}")
             .UseMultiThread(true)
             .AddParameter("-c:v h264_nvenc")
             .SetOutput(output)
@@ -121,7 +122,7 @@ public static partial class Extensions
 
         conversion.OnProgress += (_, args) =>
         {
-            AnsiConsole.MarkupLine($"Обработка {fileName} [{args.Duration}/{args.TotalLength}][{args.Percent}%]".EscapeMarkup().MarkupMainColor());
+            AnsiConsole.MarkupLine($"Обработка {fileName} [{(int)args.Duration.TotalSeconds}/{(int)args.TotalLength.TotalDays}]".EscapeMarkup().MarkupMainColor());
         };
 
         await conversion.Start(cancellationToken);
