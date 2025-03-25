@@ -100,6 +100,7 @@ try
     var builder = Host.CreateApplicationBuilder();
 
     builder.Services.Configure<AppSettings>(builder.Configuration.GetSection(nameof(AppSettings)));
+    builder.Services.AddSingleton<IVideoHandler, VideoHandler>();
     builder.Services.AddSingleton<IMenuHandler, MenuHandler>();
     builder.Services.AddSingleton<User>(_ => myself);
     builder.Services.AddSingleton<Client>(_ => client);

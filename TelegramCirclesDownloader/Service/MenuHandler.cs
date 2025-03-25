@@ -10,20 +10,18 @@ namespace TelegramCirclesDownloader.Service;
 public interface IMenuHandler
 {
     string VideoDirectory { get; }
-    string Tab { get; }
     Style Style { get; }
     Task DownloadCircles();
     Task Converter();
-    Task ConvertChromaVideos();
-    Task ConvertCircles();
 }
 
-public class MenuHandler(Client client, IOptions<AppSettings> settings, IHostApplicationLifetime lifetime) : IMenuHandler
+public class MenuHandler(Client client, IOptions<AppSettings> settings, IHostApplicationLifetime lifetime, IVideoHandler videoHandler) : IMenuHandler
 {
     public string VideoDirectory => "videos";
     private const string ChromaVideoDirectory = "chroma_videos";
     public Style Style { get; } = new(Color.MediumOrchid3);
-    public string Tab => "       ";
+    private const string Tab = "       ";
+    private readonly Random _random = new();
 
     public async Task DownloadCircles()
     {
@@ -137,7 +135,7 @@ public class MenuHandler(Client client, IOptions<AppSettings> settings, IHostApp
         var files = ChromaVideoDirectory
             .ToDirectoryInfo()
             .EnumerateFiles("*.mov");
-        await Extensions.ConvertToMp4(new Queue<FileInfo>(files), lifetime.ApplicationStopping);
+        await videoHandler.ConvertToMp4(new Queue<FileInfo>(files));
     }
 
     public async Task ConvertCircles()
@@ -180,12 +178,12 @@ public class MenuHandler(Client client, IOptions<AppSettings> settings, IHostApp
             .ToDirectoryInfo()
             .EnumerateFiles("*.mp4");
 
-        var firstForeground = ChromaVideoDirectory
+        var foregrounds = ChromaVideoDirectory
             .ToDirectoryInfo()
-            .GetFiles("*.mp4")
-            .FirstOrDefault();
+            .EnumerateFiles("*.mp4")
+            .ToList();
 
-        if (firstForeground == null)
+        if (foregrounds.Count == 0)
         {
             throw new FileNotFoundException($"Нет ни одного фона в директории {ChromaVideoDirectory}");
         }
@@ -194,9 +192,11 @@ public class MenuHandler(Client client, IOptions<AppSettings> settings, IHostApp
         {
             try
             {
-                var converted = $"{convertedDir}\\{fileInfo.Name}";
-                await fileInfo.FullName.ConvertTo916(converted, firstForeground.FullName, lifetime.ApplicationStopping);
-                await Path.GetFullPath(converted).CombineVideosWithChromaKey(firstForeground.FullName, settings.Value.ChromakeyColor, $"{combinedDir}\\{fileInfo.Name}", lifetime.ApplicationStopping);
+                var next = _random.Next(foregrounds.Count);
+                var randomForeground = foregrounds[next];
+                var path = $"{convertedDir}\\{fileInfo.Name}";
+                await videoHandler.ConvertTo916(fileInfo.FullName, path, randomForeground.FullName);
+                await videoHandler.CombineVideosWithChromaKey(Path.GetFullPath(path), randomForeground.FullName, settings.Value.ChromakeyColor, $"{combinedDir}\\{fileInfo.Name}");
             }
             catch (Exception e)
             {
