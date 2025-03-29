@@ -9,7 +9,7 @@ public interface IVideoHandler
 {
     Task ConvertToMp4(Queue<FileInfo> filesToConvert);
     Task ConvertTo916(string input, string output, string foreground);
-    Task CombineVideosWithChromaKey(string background, string foreground, string chromakeyColor, string output);
+    Task CombineVideosWithChromaKey(string background, string foreground, AppSettings settings, string output);
 }
 
 public class VideoHandler(IHostApplicationLifetime lifetime) : IVideoHandler
@@ -90,7 +90,7 @@ public class VideoHandler(IHostApplicationLifetime lifetime) : IVideoHandler
         AnsiConsole.MarkupLine($"[{fileName}] успешно обработан".EscapeMarkup().MarkupMainColor());
     }
 
-    public async Task CombineVideosWithChromaKey(string background, string foreground, string chromakeyColor, string output)
+    public async Task CombineVideosWithChromaKey(string background, string foreground, AppSettings settings, string output)
     {
         var fileName = Path.GetFileName(background);
 
@@ -105,7 +105,7 @@ public class VideoHandler(IHostApplicationLifetime lifetime) : IVideoHandler
             throw new FileLoadException("Один из видеопотоков не найден!");
         }
 
-        var filter = $"[1:v]colorkey=0x{chromakeyColor}:0.3:0.1[a];" +
+        var filter = $"[1:v]colorkey=0x{settings.ChromakeyColor}:{settings.Similarity:F1}:{settings.Blend:F1}[a];" +
                      $"[a]trim=duration={(int)backgroundInfo.Duration.TotalSeconds}[a_trim];" +
                      $"[0:v][a_trim]overlay=W-w:0";
 

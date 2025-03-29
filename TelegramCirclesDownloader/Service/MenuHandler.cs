@@ -196,7 +196,7 @@ public class MenuHandler(Client client, IOptions<AppSettings> settings, IHostApp
                 var randomForeground = foregrounds[next];
                 var path = $"{convertedDir}\\{fileInfo.Name}";
                 await videoHandler.ConvertTo916(fileInfo.FullName, path, randomForeground.FullName);
-                await videoHandler.CombineVideosWithChromaKey(Path.GetFullPath(path), randomForeground.FullName, settings.Value.ChromakeyColor, $"{combinedDir}\\{fileInfo.Name}");
+                await videoHandler.CombineVideosWithChromaKey(Path.GetFullPath(path), randomForeground.FullName, settings.Value, $"{combinedDir}\\{fileInfo.Name}");
             }
             catch (Exception e)
             {
